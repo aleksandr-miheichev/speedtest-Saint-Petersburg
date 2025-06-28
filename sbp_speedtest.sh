@@ -200,14 +200,15 @@ speed_test() {
     declare -A metrics
     while IFS=':' read -r key value; do
         key=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
-        value=$(echo "$value" | xargs)  # Удаляем лишние пробелы
+        value=$(echo "$value" | xargs)
+        [[ "$key" == "ping" ]] && key="latency"
         metrics["$key"]="$value"
     done < <(grep -E 'Download:|Upload:|Ping:' <<< "$output")
 
     # Проверяем, что все метрики получены
-    [ -z "${metrics[download]}" ] && error "Failed to parse download speed"
-    [ -z "${metrics[upload]}" ] && error "Failed to parse upload speed"
-    [ -z "${metrics[latency]}" ] && error "Failed to parse latency"
+    [[ -z "${metrics[download]:-}" ]] && error "Failed to parse download speed"
+    [[ -z "${metrics[upload]:-}"   ]] && error "Failed to parse upload speed"
+    [[ -z "${metrics[latency]:-}"  ]] && error "Failed to parse latency"
 
     # Присваиваем значения в правильном порядке
     dl_speed="${metrics[download]}"
