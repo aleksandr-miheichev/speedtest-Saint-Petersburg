@@ -190,15 +190,22 @@ speed_test() {
     local output
     output=$(<"${CACHE_DIR}/speedtest.tmp")
 
-    # Используем один вызов awk для всех данных
-    # Собираем метрики в ассоциативный массив для надежности
-    declare -A metrics
-    while IFS=':' read -r key value; do
-        key=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
-        value=$(echo "$value" | xargs)
-        [[ "$key" == "ping" ]] && key="latency"
-        metrics["$key"]="$value"
-    done < <(grep -E 'Download:|Upload:|Ping:' <<< "$output")
+    while IFS=':' read -r raw_key value; do
+        # 1) удаляем возможный '\r', обрезаем пробелы, приводим к lowercase и убираем оставшиеся пробелы
+        key=$(echo "$raw_key" \
+             | tr -d '\r' \
+             | xargs \
+             | tr '[:upper:]' '[:lower:]' \
+             | tr -d ' ')
+
+        # 2) маппим любые вариации latency/Ping в единый ключ "latency"
+        if [[ "$key" =~ latency$ ]]; then
+            key="latency"
+        fi
+
+        # 3) сохраняем значение (обрезав пробелы)
+        metrics["$key"]=$(echo "$value" | xargs)
+    done < <(grep -iE 'Download:|Upload:|Latency:' <<< "$output")
 
     # Проверяем, что все метрики получены
     [[ -z "${metrics[download]:-}" ]] && error "Failed to parse download speed"
