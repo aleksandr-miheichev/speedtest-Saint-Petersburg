@@ -171,6 +171,7 @@ next() {
 
 # Функция тестирования скорости
 speed_test() {
+    local -A metrics=()
     local node_id="${1:-}"
     local node_name="$2"
     local col1_width="${3:-40}"
@@ -187,7 +188,7 @@ speed_test() {
     fi
 
     # Извлекаем данные из вывода
-    local output
+    local outpu
     output=$(<"${CACHE_DIR}/speedtest.tmp")
 
     while IFS=':' read -r raw_key value; do
