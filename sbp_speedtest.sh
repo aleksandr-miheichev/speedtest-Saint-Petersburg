@@ -221,7 +221,7 @@ speed_test() {
     latency=$(echo "${metrics[latency]}" | sed 's/\([0-9.]* [A-Za-z/]*\).*/\1/')
 
     # Выводим результаты (порядок: Название, Download, Upload, Ping)
-    printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
+    printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
         " ${node_name}" "${up_speed}" "${dl_speed}" "${latency}"
 }
 
@@ -269,7 +269,7 @@ declare -A servers=(
     col1_width=$(max_string_length)
 
     # Заголовок таблицы (порядок: Название, Download, Upload, Ping)
-    printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
+    printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
            " Node Name" "Download Speed" "Upload Speed" "Ping"
 
     # тестируем все пронумерованные сервера
