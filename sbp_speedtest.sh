@@ -638,8 +638,16 @@ print_end_time() {
 _exists "curl" && local_curl=true
 # test if the host has IPv4/IPv6 connectivity
 [[ -n ${local_curl} ]] && ip_check_cmd="curl -s -m 4" || ip_check_cmd="wget -qO- -T 4"
-ipv4_check=$( (ping -4 -c 1 -W 4 ipv4.google.com >/dev/null 2>&1 && echo true) || ${ip_check_cmd} -4 icanhazip.com 2> /dev/null)
-ipv6_check=$( (ping -6 -c 1 -W 4 ipv6.google.com >/dev/null 2>&1 && echo true) || ${ip_check_cmd} -6 icanhazip.com 2> /dev/null)
+ipv4_check=$(
+  ( ping -4  -c 1 -W 4 ipv4.google.com >/dev/null 2>&1 && echo true ) \
+  || ${ip_check_cmd} -4 icanhazip.com 2>/dev/null \
+  || echo ""
+)
+ipv6_check=$(
+  ( ping -6  -c 1 -W 4 ipv6.google.com >/dev/null 2>&1 && echo true ) \
+  || ${ip_check_cmd} -6 icanhazip.com 2>/dev/null \
+  || echo ""
+)
 if [[ -z "$ipv4_check" && -z "$ipv6_check" ]]; then
     _yellow "Warning: Both IPv4 and IPv6 connectivity were not detected.\n"
 fi
