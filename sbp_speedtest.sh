@@ -7,6 +7,18 @@
 # Exit on error, undefined variable, and pipeline failures
 set -euo pipefail
 
+# Enable debug mode if DEBUG env var is set
+if [[ -n "${DEBUG:-}" ]]; then
+    set -x
+fi
+
+# Function to print debug info
+debug() {
+    if [[ -n "${DEBUG:-}" ]]; then
+        echo "[DEBUG] $*" >&2
+    fi
+}
+
 # Set script directory for relative paths
 if [[ ${BASH_SOURCE+set} == set && -n ${BASH_SOURCE[0]} ]]; then
     # запущен как файл: ./sbp_speedtest.sh
@@ -51,6 +63,8 @@ success() { log "SUCCESS" "${GREEN}$1${NC}"; }
 # Cleanup function
 cleanup() {
     local exit_code=$?
+    debug "Cleanup started with exit code: $exit_code"
+    
     info "Cleaning up temporary files..."
     rm -f "${SCRIPT_DIR}/speedtest.tgz"
     rm -f "${CACHE_DIR}/speedtest.tmp"
@@ -60,6 +74,14 @@ cleanup() {
         success "Script completed successfully"
     else
         error "Script failed with exit code $exit_code"
+        # Print stack trace if in debug mode
+        if [[ -n "${DEBUG:-}" ]]; then
+            error "Stack trace:"
+            local i=0
+            while caller $i; do
+                i=$((i+1))
+            done >&2
+        fi
     fi
     exit $exit_code
 }
@@ -74,8 +96,18 @@ mkdir -p "${CACHE_DIR}"
 for cmd in wget awk grep tr; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         error "Required command '$cmd' not found. Please install it first."
+    else
+        debug "Found required command: $cmd"
     fi
 done
+
+# Debug info
+debug "SCRIPT_DIR: ${SCRIPT_DIR}"
+debug "CACHE_DIR: ${CACHE_DIR}"
+debug "LOG_FILE: ${LOG_FILE}"
+debug "SPEEDTEST_BIN: ${SPEEDTEST_BIN}"
+# Create cache directory if it doesn't exist
+mkdir -p "${CACHE_DIR}" || error "Failed to create cache directory: ${CACHE_DIR}"
 
 _red() {
     printf '\033[0;31;31m%b\033[0m' "$1"
