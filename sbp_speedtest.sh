@@ -184,7 +184,6 @@ speed_test() {
     [ -n "$node_id" ] && speedtest_cmd+=(--server-id="$node_id")
 
     if ! "${speedtest_cmd[@]}" > "${CACHE_DIR}/speedtest.tmp" 2>&1; then
-        log ERROR "Speedtest failed for ${node_name}" >/dev/null 2>&1
         return 1
     fi
 
@@ -216,7 +215,6 @@ speed_test() {
     [[ -z "${metrics[upload]:-}"   ]] && { log ERROR "Parse error, skipping ${node_name}"; return 1; }
     [[ -z "${metrics[latency]:-}"  ]] && { log ERROR "Parse error, skipping ${node_name}"; return 1; }
 
-
     # Обрабатываем значения, удаляя все после первого пробела (включая скобки)
     dl_speed=$(echo "${metrics[download]}" | sed 's/\([0-9.]* [A-Za-z/]*\).*/\1/')
     up_speed=$(echo "${metrics[upload]}" | sed 's/\([0-9.]* [A-Za-z/]*\).*/\1/')
@@ -232,7 +230,7 @@ speed_test() {
 max_string_length() {
     local max=0
     local len
-
+    
     # Используем ассоциативный массив для хранения серверов
 declare -A servers=(
     [18570]='RETN Saint Petersburg'
@@ -282,28 +280,26 @@ declare -A servers=(
             :
         else
             # не упали, но просто пропускаем
-            log INFO "Skipping ${servers[$server_id]} — тест упал" /dev/null 2>&1
             continue
         fi
     done
 
     # авто-сервер тоже оборачиваем в if
     if ! speed_test "" "Speedtest.net (Auto)" "$col1_width"; then
-        log INFO "Skipping Speedtest.net (Auto) — тест упал" /dev/null 2>&1
+        :
     fi
 }
 
-
 io_test() {
-  local tmp result speed
-  tmp=benchtest_$$
-  result=$(dd if=/dev/zero of="$tmp" bs=512k count="$1" conv=fdatasync 2>&1)
-  speed=$(
-    printf '%s\n' "$result" \
-      | awk -F, '/copied/ { gsub(/^[ \t]+|[ \t]+$/, "", $NF); print $NF }'
-  )
-  rm -f "$tmp"
-  printf '%s' "$speed"
+    local tmp result speed
+    tmp=benchtest_$$
+    result=$(dd if=/dev/zero of="$tmp" bs=512k count="$1" conv=fdatasync 2>&1)
+    speed=$(
+        printf '%s\n' "$result" \
+        | awk -F, '/copied/ { gsub(/^[ \t]+|[ \t]+$/, "", $NF); print $NF }'
+    )
+    rm -f "$tmp"
+    printf '%s' "$speed"
 }
 
 calc_size() {
