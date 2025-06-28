@@ -222,7 +222,7 @@ speed_test() {
 
     # Выводим результаты (порядок: Название, Download, Upload, Ping)
     printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
-        " ${node_name}" "${dl_speed}" "${up_speed}" "${latency}"
+        " ${node_name}" "${up_speed}" "${dl_speed}" "${latency}"
 }
 
 # Функция для вычисления максимальной длины строки в массиве
@@ -270,7 +270,7 @@ declare -A servers=(
 
     # Заголовок таблицы (порядок: Название, Download, Upload, Ping)
     printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
-           " Node Name" "Upload Speed" "Download Speed" "Ping"
+           " Node Name" "Download Speed" "Upload Speed" "Ping"
 
     # тестируем все пронумерованные сервера
     for server_id in "${!servers[@]}"; do
