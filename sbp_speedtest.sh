@@ -1,7 +1,66 @@
 #!/usr/bin/env bash
 #
-# Description: A Bench Script by Aleksandr Miheichev
+# Description: Speedtest script for Saint Petersburg servers
+# Author: Aleksandr Miheichev
+# Version: 1.1.0 (2025-06-28)
 #
+# Exit on error, undefined variable, and pipeline failures
+set -euo pipefail
+
+# Set script directory for relative paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/speedtest-spb"
+LOG_FILE="${CACHE_DIR}/speedtest.log"
+SPEEDTEST_BIN="${SCRIPT_DIR}/speedtest-cli/speedtest"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging functions
+log() {
+    local level="$1"
+    local message="$2"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo -e "[${timestamp}] [${level}] ${message}" | tee -a "${LOG_FILE}" >&2
+}
+
+info() { log "INFO" "${YELLOW}$1${NC}"; }
+error() { log "ERROR" "${RED}$1${NC}"; exit 1; }
+success() { log "SUCCESS" "${GREEN}$1${NC}"; }
+
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+    info "Cleaning up temporary files..."
+    rm -f "${SCRIPT_DIR}/speedtest.tgz"
+    rm -f "${CACHE_DIR}/speedtest.tmp"
+    [ -d "${SCRIPT_DIR}/speedtest-cli" ] && rm -rf "${SCRIPT_DIR}/speedtest-cli"
+    
+    if [ $exit_code -eq 0 ]; then
+        success "Script completed successfully"
+    else
+        error "Script failed with exit code $exit_code"
+    fi
+    exit $exit_code
+}
+
+# Set up trap to call cleanup on script exit
+trap cleanup EXIT INT TERM
+
+# Create cache directory
+mkdir -p "${CACHE_DIR}"
+
+# Check for required commands
+for cmd in wget awk grep tr; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        error "Required command '$cmd' not found. Please install it first."
+    fi
+done
 
 trap _exit INT QUIT TERM
 
@@ -62,74 +121,144 @@ next() {
     echo  # добавляем перевод строки
 }
 
-speed_test() {
-    local node_id="$1"
-    local node_name="$2"
-    local col1_width=${3:-40}  # По умолчанию 40, если не указано
+# Время жизни кэша в секундах (1 час)
+CACHE_TTL=3600
+
+# Получение данных из кэша
+get_cached_result() {
+    local server_id="$1"
+    local cache_file="${CACHE_DIR}/speed_${server_id}.cache"
     
-    if [ -z "$node_id" ]; then
-        ./speedtest-cli/speedtest --progress=no --accept-license --accept-gdpr >./speedtest-cli/speedtest.log 2>&1
-    else
-        ./speedtest-cli/speedtest --progress=no --server-id="$node_id" --accept-license --accept-gdpr >./speedtest-cli/speedtest.log 2>&1
-    fi
-    
-    if [ -f ./speedtest-cli/speedtest.log ]; then
-        local dl_speed up_speed latency
-        dl_speed=$(awk '/Download/{print $3" "$4}' ./speedtest-cli/speedtest.log)
-        up_speed=$(awk '/Upload/{print $3" "$4}' ./speedtest-cli/speedtest.log)
-        latency=$(awk '/Latency/{print $3" "$4}' ./speedtest-cli/speedtest.log)
+    if [ -f "$cache_file" ]; then
+        local cache_age
+        cache_age=$(($(date +%s) - $(stat -c %Y "$cache_file")))
         
-        if [[ -n "${dl_speed}" && -n "${up_speed}" && -n "${latency}" ]]; then
-            # Форматируем вывод с учетом переданной ширины первого столбца
-            printf "\033[0;33m%-${col1_width}s\033[0;32m%-18s\033[0;31m%-20s\033[0;36m%-12s\033[0m\n" \
-                " ${node_name}" "${up_speed}" "${dl_speed}" "${latency}"
+        if [ "$cache_age" -lt "$CACHE_TTL" ]; then
+            readarray -t result < "$cache_file"
+            echo "${result[0]}:${result[1]}:${result[2]}"
+            return 0
         fi
     fi
+    return 1
+}
+
+# Сохранение в кэш
+cache_result() {
+    local server_id="$1"
+    local dl_speed="$2"
+    local up_speed="$3"
+    local latency="$4"
+    
+    mkdir -p "$CACHE_DIR"
+    printf "%s\n%s\n%s\n" "$dl_speed" "$up_speed" "$latency" > "${CACHE_DIR}/speed_${server_id}.cache"
+}
+
+# Функция тестирования скорости с кэшированием
+speed_test() {
+    local node_id="${1:-}"
+    local node_name="$2"
+    local col1_width="${3:-40}"
+    local cache_key="${node_id:-default}"
+    
+    # Пробуем получить из кэша
+    if cached_result=$(get_cached_result "$cache_key"); then
+        IFS=':' read -r dl_speed up_speed latency <<< "$cached_result"
+        info "Using cached results for ${node_name}"
+    else
+        # Выполняем тест
+        info "Running speed test for ${node_name}..."
+        
+        local speedtest_cmd=("${SPEEDTEST_BIN}" --progress=no --accept-license --accept-gdpr)
+        [ -n "$node_id" ] && speedtest_cmd+=(--server-id="$node_id")
+        
+        if ! "${speedtest_cmd[@]}" > "${CACHE_DIR}/speedtest.tmp" 2>&1; then
+            error "Speedtest failed for ${node_name}"
+        fi
+        
+        # Извлекаем данные из вывода
+        local output
+        output=$(<"${CACHE_DIR}/speedtest.tmp")
+        
+        # Используем один вызов awk для всех данных
+        readarray -t metrics < <(awk '
+            /Download:/ {print $3 " " $4}
+            /Upload:/ {print $3 " " $4}
+            /Latency:/ {print $3 " " $4}
+        ' <<< "$output")
+        
+        [ "${#metrics[@]}" -lt 3 ] && error "Failed to parse speedtest output"
+        
+        dl_speed="${metrics[0]}"
+        up_speed="${metrics[1]}"
+        latency="${metrics[2]}"
+        
+        # Кэшируем результаты
+        cache_result "$cache_key" "$dl_speed" "$up_speed" "$latency"
+    fi
+    
+    # Выводим результаты
+    printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
+        " ${node_name}" "${up_speed}" "${dl_speed}" "${latency}"
 }
 
 # Функция для вычисления максимальной длины строки в массиве
 max_string_length() {
     local max=0
     local len
-    local str
     
-    # Передаем массив как аргументы, начиная со второго элемента с шагом 2
-    shift  # Пропускаем первый элемент (пустая строка для автоопределения)
-    while [ "$#" -gt 0 ]; do
-        str="$1"
-        len="${#str}"
+    # Используем ассоциативный массив для хранения серверов
+declare -A servers=(
+    ['']='Speedtest.net (Auto)'
+    ['18570']='RETN Saint Petersburg'
+    ['31126']='Nevalink Ltd. Saint Petersburg'
+    ['16125']='Selectel Saint Petersburg'
+    ['69069']='Aeza.net Saint Petersburg'
+    ['21014']='P.A.K.T. LLC Saint Petersburg'
+    ['4247']='MTS Saint Petersburg'
+    ['6051']='t2 Russia Saint Petersburg'
+    ['17039']='MegaFon Saint Petersburg'
+)
+    
+    # Находим максимальную длину названия сервера
+    for name in "${servers[@]}"; do
+        len="${#name}"
         [ "$len" -gt "$max" ] && max="$len"
-        shift 2  # Пропускаем ID сервера и переходим к следующему названию
     done
     
     echo $((max + 2))  # Добавляем отступ для лучшей читаемости
 }
 
 speed() {
-    # Массив с ID серверов и их названиями (Санкт-Петербург)
-    local servers=(
-        '' 'Speedtest.net (Auto)'
-        '18570' 'RETN Saint Petersburg'
-        '31126' 'Nevalink Ltd. Saint Petersburg'
-        '16125' 'Selectel Saint Petersburg'
-        '69069' 'Aeza.net Saint Petersburg'
-        '21014' 'P.A.K.T. LLC Saint Petersburg'
-        '4247'  'MTS Saint Petersburg'
-        '6051'  't2 Russia Saint Petersburg'
-        '17039' 'MegaFon Saint Petersburg'
+    # Используем ассоциативный массив для хранения серверов
+    declare -A servers=(
+        ['']='Speedtest.net (Auto)'
+        ['18570']='RETN Saint Petersburg'
+        ['31126']='Nevalink Ltd. Saint Petersburg'
+        ['16125']='Selectel Saint Petersburg'
+        ['69069']='Aeza.net Saint Petersburg'
+        ['21014']='P.A.K.T. LLC Saint Petersburg'
+        ['4247']='MTS Saint Petersburg'
+        ['6051']='t2 Russia Saint Petersburg'
+        ['17039']='MegaFon Saint Petersburg'
     )
     
     # Вычисляем максимальную длину названия сервера
     local col1_width
-    col1_width=$(max_string_length "${servers[@]}")
+    col1_width=$(max_string_length)
     
     # Выводим заголовок с выравниванием по рассчитанной ширине
-    printf "%-${col1_width}s%-18s%-20s%-12s\n" " Node Name" "Upload Speed" "Download Speed" "Latency"
+    printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
+        " Node Name" "Upload Speed" "Download Speed" "Latency"
     
-    # Проходим по массиву с шагом 2 (ID и название)
-    for ((i=0; i<${#servers[@]}; i+=2)); do
-        speed_test "${servers[i]}" "${servers[i+1]}" "$col1_width"
+    # Проходим по серверам в отсортированном порядке
+    for server_id in "${!servers[@]}"; do
+        # Пропускаем автоопределение, выведем его первым
+        [ -z "$server_id" ] && continue
+        speed_test "$server_id" "${servers[$server_id]}" "$col1_width"
     done
+    
+    # Тестируем автоопределение последним
+    speed_test "" "${servers['']}" "$col1_width"
 }
 
 io_test() {
@@ -304,13 +433,14 @@ install_speedtest() {
 print_intro() {
     local border
     # Создаем строку из 70 дефисов
-    border=$(printf '%.0s-' {1..70})
+    printf -v border '%.0s-' {1..70}
     
     echo "${border}"
-    echo "  $(tput bold)Benchmark Script by Aleksandr Miheichev$(tput sgr0)"
-    echo "  Version: $(_green 'v2025-06-28')"
-    echo "  Usage:   $(_blue 'curl -sL https://git.io/speedtest-spb | bash')"
-    echo "  Source:  $(_blue 'https://github.com/aleksandr-miheichev/speedtest-Saint-Petersburg')"
+    echo "  $(tput bold)Speedtest for Saint Petersburg Servers$(tput sgr0)"
+    echo "  Version: ${GREEN}v1.1.0${NC} (2025-06-28)"
+    echo "  Usage:   ${BLUE}curl -sL https://git.io/speedtest-spb | bash${NC}"
+    echo "  Source:  ${BLUE}https://github.com/aleksandr-miheichev/speedtest-Saint-Petersburg${NC}"
+    echo "  Cache:   ${YELLOW}${CACHE_DIR}${NC}"
     echo "${border}"
 }
 
