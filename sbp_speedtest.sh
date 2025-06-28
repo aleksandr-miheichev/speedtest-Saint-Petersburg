@@ -270,7 +270,7 @@ declare -A servers=(
 
     # Заголовок таблицы (порядок: Название, Download, Upload, Ping)
     printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
-           " Node Name" "Download Speed" "Upload Speed" "Ping"
+           " Node Name" "Upload Speed" "Download Speed" "Ping"
 
     # тестируем все пронумерованные сервера
     for server_id in "${!servers[@]}"; do
