@@ -8,12 +8,12 @@
 set -euo pipefail
 
 # Set script directory for relative paths
-if [[ "${BASH_SOURCE[0]:-}" == "" ]]; then
-    # When running via curl | bash
-    SCRIPT_DIR="${PWD}"
-else
-    # When running directly
+if [[ ${BASH_SOURCE+set} == set && -n ${BASH_SOURCE[0]} ]]; then
+    # запущен как файл: ./sbp_speedtest.sh
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+else
+    # запущен по конвейеру:  wget … | bash
+    SCRIPT_DIR="${PWD}"
 fi
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/speedtest-spb"
 LOG_FILE="${CACHE_DIR}/speedtest.log"
@@ -25,6 +25,15 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# ────────── жирный шрифт, только если вывод идёт в терминал ──────────
+if [[ -t 1 ]]; then
+    BOLD=$(tput bold)
+    NORMAL=$(tput sgr0)
+else
+    BOLD=""
+    NORMAL=""
+fi
 
 # Logging functions
 log() {
@@ -56,7 +65,7 @@ cleanup() {
 }
 
 # Set up trap to call cleanup on script exit
-trap cleanup EXIT INT TERM
+trap cleanup EXIT INT TERM QUIT
 
 # Create cache directory
 mkdir -p "${CACHE_DIR}"
@@ -67,8 +76,6 @@ for cmd in wget awk grep tr; do
         error "Required command '$cmd' not found. Please install it first."
     fi
 done
-
-trap _exit INT QUIT TERM
 
 _red() {
     printf '\033[0;31;31m%b\033[0m' "$1"
@@ -442,7 +449,7 @@ print_intro() {
     printf -v border '%.0s-' {1..70}
     
     echo "${border}"
-    echo "  $(tput bold)Speedtest for Saint Petersburg Servers$(tput sgr0)"
+    echo "  ${BOLD}Speedtest for Saint Petersburg Servers${NORMAL}"
     echo "  Version: ${GREEN}v1.1.0${NC} (2025-06-28)"
     echo "  Usage:   ${BLUE}curl -sL https://git.io/speedtest-spb | bash${NC}"
     echo "  Source:  ${BLUE}https://github.com/aleksandr-miheichev/speedtest-Saint-Petersburg${NC}"
