@@ -64,27 +64,30 @@ success() { log "SUCCESS" "${GREEN}$1${NC}"; }
 cleanup() {
     local exit_code=$?
     debug "Cleanup started with exit code: $exit_code"
-    
+
     info "Cleaning up temporary files..."
-    rm -f "${SCRIPT_DIR}/speedtest.tgz"
-    rm -f "${CACHE_DIR}/speedtest.tmp"
-    [ -d "${SCRIPT_DIR}/speedtest-cli" ] && rm -rf "${SCRIPT_DIR}/speedtest-cli"
-    
+    # … тут ваши rm и т.п. …
+
     if [ $exit_code -eq 0 ]; then
         success "Script completed successfully"
-    else
-        error "Script failed with exit code $exit_code"
-        # Print stack trace if in debug mode
-        if [[ -n "${DEBUG:-}" ]]; then
-            error "Stack trace:"
-            local i=0
-            while caller $i; do
-                i=$((i+1))
-            done >&2
-        fi
+        exit 0
     fi
-    exit $exit_code
+
+    # Не вызывать error, пока не вывели стек
+    echo "Script failed with exit code $exit_code" >&2
+
+    if [[ -n "${DEBUG:-}" ]]; then
+        echo "Stack trace:" >&2
+        local i=0
+        while caller "$i"; do
+            i=$((i+1))
+        done >&2
+    fi
+
+    # Теперь можно аварийно завершиться
+    error "Exiting with code $exit_code"
 }
+
 
 # Set up trap to call cleanup on script exit
 trap cleanup EXIT INT TERM QUIT
@@ -253,15 +256,14 @@ max_string_length() {
     
     # Используем ассоциативный массив для хранения серверов
 declare -A servers=(
-    ['']='Speedtest.net (Auto)'
-    ['18570']='RETN Saint Petersburg'
-    ['31126']='Nevalink Ltd. Saint Petersburg'
-    ['16125']='Selectel Saint Petersburg'
-    ['69069']='Aeza.net Saint Petersburg'
-    ['21014']='P.A.K.T. LLC Saint Petersburg'
-    ['4247']='MTS Saint Petersburg'
-    ['6051']='t2 Russia Saint Petersburg'
-    ['17039']='MegaFon Saint Petersburg'
+    [18570]='RETN Saint Petersburg'
+    [31126]='Nevalink Ltd. Saint Petersburg'
+    [16125]='Selectel Saint Petersburg'
+    [69069]='Aeza.net Saint Petersburg'
+    [21014]='P.A.K.T. LLC Saint Petersburg'
+    [4247]='MTS Saint Petersburg'
+    [6051]='t2 Russia Saint Petersburg'
+    [17039]='MegaFon Saint Petersburg'
 )
     
     # Находим максимальную длину названия сервера
@@ -274,18 +276,17 @@ declare -A servers=(
 }
 
 speed() {
-    # ассоциативный массив
-    declare -A servers=(
-        ['']='Speedtest.net (Auto)'
-        ['18570']='RETN Saint Petersburg'
-        ['31126']='Nevalink Ltd. Saint Petersburg'
-        ['16125']='Selectel Saint Petersburg'
-        ['69069']='Aeza.net Saint Petersburg'
-        ['21014']='P.A.K.T. LLC Saint Petersburg'
-        ['4247']='MTS Saint Petersburg'
-        ['6051']='t2 Russia Saint Petersburg'
-        ['17039']='MegaFon Saint Petersburg'
-    )
+    # ассоциативный массив только с цифровыми ID
+declare -A servers=(
+    [18570]='RETN Saint Petersburg'
+    [31126]='Nevalink Ltd. Saint Petersburg'
+    [16125]='Selectel Saint Petersburg'
+    [69069]='Aeza.net Saint Petersburg'
+    [21014]='P.A.K.T. LLC Saint Petersburg'
+    [4247]='MTS Saint Petersburg'         # <-- убрали пробел перед '
+    [6051]='t2 Russia Saint Petersburg'
+    [17039]='MegaFon Saint Petersburg'
+)
 
     # ширина первого столбца
     local col1_width
@@ -295,14 +296,13 @@ speed() {
     printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
            " Node Name" "Upload Speed" "Download Speed" "Latency"
 
-    # сначала все «обычные» серверы
+    # тестируем все пронумерованные сервера
     for server_id in "${!servers[@]}"; do
-        [[ -z $server_id ]] && continue          # пропускаем '' (auto)
         speed_test "$server_id" "${servers[$server_id]}" "$col1_width"
     done
 
-    # затем авто-выбор
-    speed_test "" "${servers[""]}" "$col1_width"
+    # отдельно — авто-сервер
+    speed_test "" "Speedtest.net (Auto)" "$col1_width"
 }
 
 
