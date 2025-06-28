@@ -282,14 +282,14 @@ declare -A servers=(
             :
         else
             # не упали, но просто пропускаем
-            log INFO "Skipping ${servers[$server_id]} — тест упал" >/dev/null
+            log INFO "Skipping ${servers[$server_id]} — тест упал" /dev/null 2>&1
             continue
         fi
     done
 
     # авто-сервер тоже оборачиваем в if
     if ! speed_test "" "Speedtest.net (Auto)" "$col1_width"; then
-        log INFO "Skipping Speedtest.net (Auto) — тест упал"
+        log INFO "Skipping Speedtest.net (Auto) — тест упал" /dev/null 2>&1
     fi
 }
 
