@@ -169,17 +169,12 @@ next() {
     echo  # добавляем перевод строки
 }
 
-# Время жизни кэша в секундах (1 час)
-CACHE_TTL=3600
-
-# Функция тестирования скорости с кэшированием
+# Функция тестирования скорости
 speed_test() {
     local node_id="${1:-}"
     local node_name="$2"
     local col1_width="${3:-40}"
-    local cache_key="${node_id:-default}"
-
-    # Пробуем получить из кэша
+    local col1_width="${3:-40}"
 
     # Выполняем тест
     debug "Running speed test for ${node_name}..."
@@ -278,7 +273,17 @@ declare -A servers=(
 
 
 io_test() {
-    (LANG=C dd if=/dev/zero of=benchtest_$$ bs=512k count="$1" conv=fdatasync && rm -f benchtest_$$) 2>&1 | awk -F '[,，]' '{io=$NF} END { print io}' | sed 's/^[ \t]*//;s/[ \t]*$//'
+    local result
+    result=$(
+        set +x
+        LANG=C dd if=/dev/zero of=benchtest_$$ bs=512k count="$1" conv=fdatasync 2>&1
+    )
+    # Теперь фильтруем только строку с цифрами скорости
+    result=$(printf '%s\n' "$result" \
+        | awk -F '[,，]' '/records out/ {io=$NF} END { print io }' \
+        | sed 's/^[ \t]*//;s/[ \t]*$//')
+    rm -f benchtest_$$ 2>/dev/null
+    printf '%s' "$result"
 }
 
 calc_size() {
