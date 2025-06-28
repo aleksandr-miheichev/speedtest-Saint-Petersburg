@@ -20,11 +20,11 @@ LOG_FILE="${CACHE_DIR}/speedtest.log"
 SPEEDTEST_BIN="${SCRIPT_DIR}/speedtest-cli/speedtest"
 
 # Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[0;33m'
+BLUE=$'\033[0;34m'
+NC=$'\033[0m'  # No Color
 
 # ────────── жирный шрифт, только если вывод идёт в терминал ──────────
 if [[ -t 1 ]]; then
@@ -242,7 +242,7 @@ declare -A servers=(
 }
 
 speed() {
-    # Используем ассоциативный массив для хранения серверов
+    # ассоциативный массив
     declare -A servers=(
         ['']='Speedtest.net (Auto)'
         ['18570']='RETN Saint Petersburg'
@@ -254,25 +254,25 @@ speed() {
         ['6051']='t2 Russia Saint Petersburg'
         ['17039']='MegaFon Saint Petersburg'
     )
-    
-    # Вычисляем максимальную длину названия сервера
+
+    # ширина первого столбца
     local col1_width
     col1_width=$(max_string_length)
-    
-    # Выводим заголовок с выравниванием по рассчитанной ширине
+
+    # заголовок
     printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
-        " Node Name" "Upload Speed" "Download Speed" "Latency"
-    
-    # Проходим по серверам в отсортированном порядке
+           " Node Name" "Upload Speed" "Download Speed" "Latency"
+
+    # сначала все «обычные» серверы
     for server_id in "${!servers[@]}"; do
-        # Пропускаем автоопределение, выведем его первым
-        [ -z "$server_id" ] && continue
+        [[ -z $server_id ]] && continue          # пропускаем '' (auto)
         speed_test "$server_id" "${servers[$server_id]}" "$col1_width"
     done
-    
-    # Тестируем автоопределение последним
-    speed_test "" "${servers['']}" "$col1_width"
+
+    # затем авто-выбор
+    speed_test "" "${servers[""]}" "$col1_width"
 }
+
 
 io_test() {
     (LANG=C dd if=/dev/zero of=benchtest_$$ bs=512k count="$1" conv=fdatasync && rm -f benchtest_$$) 2>&1 | awk -F '[,，]' '{io=$NF} END { print io}' | sed 's/^[ \t]*//;s/[ \t]*$//'
@@ -445,17 +445,19 @@ install_speedtest() {
 
 print_intro() {
     local border
-    # Создаем строку из 70 дефисов
-    printf -v border '%.0s-' {1..70}
-    
-    echo "${border}"
-    echo "  ${BOLD}Speedtest for Saint Petersburg Servers${NORMAL}"
-    echo "  Version: ${GREEN}v1.1.0${NC} (2025-06-28)"
-    echo "  Usage:   ${BLUE}curl -sL https://git.io/speedtest-spb | bash${NC}"
-    echo "  Source:  ${BLUE}https://github.com/aleksandr-miheichev/speedtest-Saint-Petersburg${NC}"
-    echo "  Cache:   ${YELLOW}${CACHE_DIR}${NC}"
-    echo "${border}"
+    printf -v border '%.0s-' {1..70}   # 70 дефисов
+
+    printf "%s\n" "$border"
+    printf "  %sSpeedtest for Saint Petersburg Servers%s\n" "$BOLD" "$NORMAL"
+    printf "  Version: %sv1.1.0%s (2025-06-28)\n"           "$GREEN" "$NC"
+    printf "  Usage:   %wget -qO- https://raw.githubusercontent.com/aleksandr-miheichev/speedtest-Saint-Petersburg/main/sbp_speedtest.sh | bash%s\n" \
+                                                            "$BLUE"  "$NC"
+    printf "  Source:  %shttps://github.com/aleksandr-miheichev/speedtest-Saint-Petersburg%s\n" \
+                                                            "$BLUE"  "$NC"
+    printf "  Cache:   %s%s%s\n"                            "$YELLOW" "$CACHE_DIR" "$NC"
+    printf "%s\n" "$border"
 }
+
 
 # Get System information
 get_system_info() {
