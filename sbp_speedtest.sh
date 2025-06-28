@@ -5,7 +5,7 @@
 # Version: 1.1.0 (2025-06-28)
 #
 # Exit on error, undefined variable, and pipeline failures
-set -euo pipefail
+set +e
 
 # Enable debug mode if DEBUG env var is set
 if [[ -n "${DEBUG:-}" ]]; then
@@ -648,6 +648,7 @@ ipv6_check=$(
   || ${ip_check_cmd} -6 icanhazip.com 2>/dev/null \
   || echo ""
 )
+set -euo pipefail
 if [[ -z "$ipv4_check" && -z "$ipv6_check" ]]; then
     _yellow "Warning: Both IPv4 and IPv6 connectivity were not detected.\n"
 fi
