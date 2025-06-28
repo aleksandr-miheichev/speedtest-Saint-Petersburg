@@ -184,7 +184,7 @@ speed_test() {
     [ -n "$node_id" ] && speedtest_cmd+=(--server-id="$node_id")
 
     if ! "${speedtest_cmd[@]}" > "${CACHE_DIR}/speedtest.tmp" 2>&1; then
-        log ERROR "Speedtest failed for ${node_name}"
+        log ERROR "Speedtest failed for ${node_name}" >/dev/null 2>&1
         return 1
     fi
 
@@ -282,7 +282,7 @@ declare -A servers=(
             :
         else
             # не упали, но просто пропускаем
-            log INFO "Skipping ${servers[$server_id]} — тест упал"
+            log INFO "Skipping ${servers[$server_id]} — тест упал" >/dev/null
             continue
         fi
     done
