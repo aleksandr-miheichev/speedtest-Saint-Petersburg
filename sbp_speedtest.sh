@@ -211,10 +211,10 @@ speed_test() {
     # Пробуем получить из кэша
     if cached_result=$(get_cached_result "$cache_key"); then
         IFS=':' read -r dl_speed up_speed latency <<< "$cached_result"
-        info "Using cached results for ${node_name}"
+        debug "Using cached results for ${node_name}"
     else
         # Выполняем тест
-        info "Running speed test for ${node_name}..."
+        debug "Running speed test for ${node_name}..."
         
         local speedtest_cmd=("${SPEEDTEST_BIN}" --progress=no --accept-license --accept-gdpr)
         [ -n "$node_id" ] && speedtest_cmd+=(--server-id="$node_id")
@@ -472,7 +472,6 @@ install_speedtest() {
             exit 1
         fi
     fi
-    printf "%-40s%-18s%-20s%-12s\n" " Node Name" "Upload Speed" "Download Speed" "Latency"
 }
 
 print_intro() {
@@ -569,7 +568,7 @@ get_system_info() {
 # Print System information
 print_system_info() {
     if [ -n "$cname" ]; then
-        echo " CPU Model          : $(_blue "$cname")"
+        echo " CPU Model          :$(_blue "$cname")"
     else
         echo " CPU Model          : $(_blue "CPU model not detected")"
     fi
@@ -579,7 +578,7 @@ print_system_info() {
         echo " CPU Cores          : $(_blue "$cores")"
     fi
     if [ -n "$ccache" ]; then
-        echo " CPU Cache          : $(_blue "$ccache")"
+        echo " CPU Cache          :$(_blue "$ccache")"
     fi
     if [ "$cpu_aes" = "Enabled" ]; then
         cpu_aes="$(_green "\xe2\x9c\x93 $cpu_aes")"
