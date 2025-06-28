@@ -85,7 +85,8 @@ cleanup() {
     fi
 
     # Теперь можно аварийно завершиться
-    error "Exiting with code $exit_code"
+    log ERROR "Exiting with code $exit_code"
+    return $exit_code
 }
 
 
@@ -183,7 +184,8 @@ speed_test() {
     [ -n "$node_id" ] && speedtest_cmd+=(--server-id="$node_id")
 
     if ! "${speedtest_cmd[@]}" > "${CACHE_DIR}/speedtest.tmp" 2>&1; then
-        error "Speedtest failed for ${node_name}"
+        log ERROR "Speedtest failed for ${node_name}"
+        return 1
     fi
 
     # Извлекаем данные из вывода
@@ -210,9 +212,10 @@ speed_test() {
     done < <(grep -iE 'Download:|Upload:|Latency:' <<< "$output")
 
     # Проверяем, что все метрики получены
-    [[ -z "${metrics[download]:-}" ]] && error "Failed to parse download speed"
-    [[ -z "${metrics[upload]:-}"   ]] && error "Failed to parse upload speed"
-    [[ -z "${metrics[latency]:-}"  ]] && error "Failed to parse latency"
+    [[ -z "${metrics[download]:-}" ]] && { log ERROR "Parse error, skipping ${node_name}"; return 1; }
+    [[ -z "${metrics[upload]:-}"   ]] && { log ERROR "Parse error, skipping ${node_name}"; return 1; }
+    [[ -z "${metrics[latency]:-}"  ]] && { log ERROR "Parse error, skipping ${node_name}"; return 1; }
+
 
     # Обрабатываем значения, удаляя все после первого пробела (включая скобки)
     dl_speed=$(echo "${metrics[download]}" | sed 's/\([0-9.]* [A-Za-z/]*\).*/\1/')
@@ -222,6 +225,7 @@ speed_test() {
     # Выводим результаты (порядок: Название, Download, Upload, Ping)
     printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
         " ${node_name}" "${up_speed}" "${dl_speed}" "${latency}"
+    return 0
 }
 
 # Функция для вычисления максимальной длины строки в массиве
@@ -273,18 +277,19 @@ declare -A servers=(
 
     # тестируем все пронумерованные сервера
     for server_id in "${!servers[@]}"; do
-        # если тест завершился ошибкой — пропускаем эту ноду
         if speed_test "$server_id" "${servers[$server_id]}" "$col1_width"; then
-            :  # всё ок, speed_test уже напечатал строку
+            # успешно пропечатали строку
+            :
         else
-            echo "  ${servers[$server_id]}: skipped (test failed)" >&2
+            # не упали, но просто пропускаем
+            log INFO "Skipping ${servers[$server_id]} — тест упал"
             continue
         fi
     done
 
-    # отдельно — авто-сервер
-    if speed_test "" "Speedtest.net (Auto)" "$col1_width"; then
-        :
+    # авто-сервер тоже оборачиваем в if
+    if ! speed_test "" "Speedtest.net (Auto)" "$col1_width"; then
+        log INFO "Skipping Speedtest.net (Auto) — тест упал"
     fi
 }
 
@@ -655,7 +660,6 @@ ipv6_check=$(
   || ${ip_check_cmd} -6 icanhazip.com 2>/dev/null \
   || echo ""
 )
-set -euo pipefail
 if [[ -z "$ipv4_check" && -z "$ipv6_check" ]]; then
     _yellow "Warning: Both IPv4 and IPv6 connectivity were not detected.\n"
 fi
