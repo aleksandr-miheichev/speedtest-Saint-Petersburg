@@ -63,21 +63,46 @@ next() {
 }
 
 speed_test() {
-    local nodeName="$2"
-    if [ -z "$1" ];then
+    local node_id="$1"
+    local node_name="$2"
+    local col1_width=${3:-40}  # По умолчанию 40, если не указано
+    
+    if [ -z "$node_id" ]; then
         ./speedtest-cli/speedtest --progress=no --accept-license --accept-gdpr >./speedtest-cli/speedtest.log 2>&1
     else
-        ./speedtest-cli/speedtest --progress=no --server-id="$1" --accept-license --accept-gdpr >./speedtest-cli/speedtest.log 2>&1
+        ./speedtest-cli/speedtest --progress=no --server-id="$node_id" --accept-license --accept-gdpr >./speedtest-cli/speedtest.log 2>&1
     fi
-    if ./speedtest-cli/speedtest --progress=no ${1:+--server-id="$1"} --accept-license --accept-gdpr >./speedtest-cli/speedtest.log 2>&1; then
+    
+    if [ -f ./speedtest-cli/speedtest.log ]; then
         local dl_speed up_speed latency
         dl_speed=$(awk '/Download/{print $3" "$4}' ./speedtest-cli/speedtest.log)
         up_speed=$(awk '/Upload/{print $3" "$4}' ./speedtest-cli/speedtest.log)
         latency=$(awk '/Latency/{print $3" "$4}' ./speedtest-cli/speedtest.log)
+        
         if [[ -n "${dl_speed}" && -n "${up_speed}" && -n "${latency}" ]]; then
-            printf "\033[0;33m%-40s\033[0;32m%-18s\033[0;31m%-20s\033[0;36m%-12s\033[0m\n" "${nodeName}" "${up_speed}" "${dl_speed}" "${latency}"
+            # Форматируем вывод с учетом переданной ширины первого столбца
+            printf "\033[0;33m%-${col1_width}s\033[0;32m%-18s\033[0;31m%-20s\033[0;36m%-12s\033[0m\n" \
+                " ${node_name}" "${up_speed}" "${dl_speed}" "${latency}"
         fi
     fi
+}
+
+# Функция для вычисления максимальной длины строки в массиве
+max_string_length() {
+    local max=0
+    local len
+    local str
+    
+    # Передаем массив как аргументы, начиная со второго элемента с шагом 2
+    shift  # Пропускаем первый элемент (пустая строка для автоопределения)
+    while [ "$#" -gt 0 ]; do
+        str="$1"
+        len="${#str}"
+        [ "$len" -gt "$max" ] && max="$len"
+        shift 2  # Пропускаем ID сервера и переходим к следующему названию
+    done
+    
+    echo $((max + 2))  # Добавляем отступ для лучшей читаемости
 }
 
 speed() {
@@ -94,9 +119,16 @@ speed() {
         '17039' 'MegaFon Saint Petersburg'
     )
     
+    # Вычисляем максимальную длину названия сервера
+    local col1_width
+    col1_width=$(max_string_length "${servers[@]}")
+    
+    # Выводим заголовок с выравниванием по рассчитанной ширине
+    printf "%-${col1_width}s%-18s%-20s%-12s\n" " Node Name" "Upload Speed" "Download Speed" "Latency"
+    
     # Проходим по массиву с шагом 2 (ID и название)
     for ((i=0; i<${#servers[@]}; i+=2)); do
-        speed_test "${servers[i]}" "${servers[i+1]}"
+        speed_test "${servers[i]}" "${servers[i+1]}" "$col1_width"
     done
 }
 
