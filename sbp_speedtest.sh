@@ -175,7 +175,6 @@ speed_test() {
     local node_id="${1:-}"
     local node_name="$2"
     local col1_width="${3:-40}"
-    local col1_width="${3:-40}"
 
     # Выполняем тест
     debug "Running speed test for ${node_name}..."
@@ -194,10 +193,10 @@ speed_test() {
     while IFS=':' read -r raw_key value; do
         # 1) удаляем возможный '\r', обрезаем пробелы, приводим к lowercase и убираем оставшиеся пробелы
         key=$(echo "$raw_key" \
-             | tr -d '\r' \
-             | xargs \
-             | tr '[:upper:]' '[:lower:]' \
-             | tr -d ' ')
+            | tr -d '\r' \
+            | xargs \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr -d ' ')
 
         # 2) маппим любые вариации latency/Ping в единый ключ "latency"
         if [[ "$key" =~ latency$ ]]; then
@@ -274,11 +273,19 @@ declare -A servers=(
 
     # тестируем все пронумерованные сервера
     for server_id in "${!servers[@]}"; do
-        speed_test "$server_id" "${servers[$server_id]}" "$col1_width"
+        # если тест завершился ошибкой — пропускаем эту ноду
+        if speed_test "$server_id" "${servers[$server_id]}" "$col1_width"; then
+            :  # всё ок, speed_test уже напечатал строку
+        else
+            echo "  ${servers[$server_id]}: skipped (test failed)" >&2
+            continue
+        fi
     done
 
     # отдельно — авто-сервер
-    speed_test "" "Speedtest.net (Auto)" "$col1_width"
+    if speed_test "" "Speedtest.net (Auto)" "$col1_width"; then
+        :
+    fi
 }
 
 
