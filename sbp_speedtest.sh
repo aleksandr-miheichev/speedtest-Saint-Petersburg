@@ -493,12 +493,28 @@ print_intro() {
 
 # Get System information
 get_system_info() {
-    cname=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
-    cores=$(awk -F: '/^processor/ {core++} END {print core}' /proc/cpuinfo)
-    freq=$(awk -F'[ :]' '/cpu MHz/ {print $4;exit}' /proc/cpuinfo)
-    ccache=$(awk -F: '/cache size/ {cache=$2} END {print cache}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//')
-    cpu_aes=$(grep -i 'aes' /proc/cpuinfo)
-    cpu_virt=$(grep -Ei 'vmx|svm' /proc/cpuinfo)
+    # Safe way to get CPU info with fallbacks
+    cname=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo 2>/dev/null || echo "Unknown CPU" | sed 's/^[ \t]*//;s/[ \t]*$//')
+    cores=$(awk -F: '/^processor/ {core++} END {print core}' /proc/cpuinfo 2>/dev/null || echo "1")
+    freq=$(awk -F: '/cpu MHz/ {print $2;exit}' /proc/cpuinfo 2>/dev/null || echo "0" | sed 's/^[ \t]*//;s/[ \t]*$//')
+    ccache=$(awk -F: '/cache size/ {cache=$2} END {print cache}' /proc/cpuinfo 2>/dev/null || echo "Unknown" | sed 's/^[ \t]*//;s/[ \t]*$//')
+    
+    # Check for AES support (don't fail if not found)
+    cpu_aes=""
+    if grep -qi aes /proc/cpuinfo 2>/dev/null; then
+        cpu_aes="Enabled"
+    else
+        cpu_aes="Disabled"
+    fi
+    
+    # Check for virtualization support (don't fail if not found)
+    cpu_virt=""
+    if grep -q -E 'vmx|svm' /proc/cpuinfo 2>/dev/null; then
+        cpu_virt="Enabled"
+    else
+        cpu_virt="Disabled"
+    fi
+    
     tram=$(
         LANG=C
         free | awk '/Mem/ {print $2}'
@@ -565,16 +581,18 @@ print_system_info() {
     if [ -n "$ccache" ]; then
         echo " CPU Cache          : $(_blue "$ccache")"
     fi
-    if [ -n "$cpu_aes" ]; then
-        echo " AES-NI             : $(_green "\xe2\x9c\x93 Enabled")"
+    if [ "$cpu_aes" = "Enabled" ]; then
+        cpu_aes="$(_green "\xe2\x9c\x93 $cpu_aes")"
     else
-        echo " AES-NI             : $(_red "\xe2\x9c\x97 Disabled")"
+        cpu_aes="$(_red "\xe2\x9c\x97 $cpu_aes")"
     fi
-    if [ -n "$cpu_virt" ]; then
-        echo " VM-x/AMD-V         : $(_green "\xe2\x9c\x93 Enabled")"
+    echo " AES-NI             : $cpu_aes"
+    if [ "$cpu_virt" = "Enabled" ]; then
+        cpu_virt="$(_green "\xe2\x9c\x93 $cpu_virt")"
     else
-        echo " VM-x/AMD-V         : $(_red "\xe2\x9c\x97 Disabled")"
+        cpu_virt="$(_red "\xe2\x9c\x97 $cpu_virt")"
     fi
+    echo " VM-x/AMD-V         : $cpu_virt"
     echo " Total Disk         : $(_yellow "$disk_total_size") $(_blue "($disk_used_size Used)")"
     echo " Total Mem          : $(_yellow "$tram") $(_blue "($uram Used)")"
     if [ "$swap" != "0" ]; then
