@@ -150,7 +150,7 @@ _exit() {
 
 get_opsy() {
     local os_info
-    
+
     if [ -f /etc/os-release ]; then
         os_info=$(awk -F'[="]' '/^PRETTY_NAME=/{print $3}' /etc/os-release)
     elif [ -f /etc/redhat-release ]; then
@@ -158,7 +158,7 @@ get_opsy() {
     elif [ -f /etc/lsb-release ]; then
         os_info=$(awk -F'[="]+' '/^DISTRIB_DESCRIPTION=/{print $2}' /etc/lsb-release)
     fi
-    
+
     # Удаляем лишние пробелы и выводим результат
     echo "${os_info# }" | sed 's/^[ \t]*//;s/[ \t]*$//'
 }
@@ -172,85 +172,49 @@ next() {
 # Время жизни кэша в секундах (1 час)
 CACHE_TTL=3600
 
-# Получение данных из кэша
-get_cached_result() {
-    local server_id="$1"
-    local cache_file="${CACHE_DIR}/speed_${server_id}.cache"
-    
-    if [ -f "$cache_file" ]; then
-        local cache_age
-        cache_age=$(($(date +%s) - $(stat -c %Y "$cache_file")))
-        
-        if [ "$cache_age" -lt "$CACHE_TTL" ]; then
-            readarray -t result < "$cache_file"
-            echo "${result[0]}:${result[1]}:${result[2]}"
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# Сохранение в кэш
-cache_result() {
-    local server_id="$1"
-    local dl_speed="$2"
-    local up_speed="$3"
-    local latency="$4"
-    
-    mkdir -p "$CACHE_DIR"
-    printf "%s\n%s\n%s\n" "$dl_speed" "$up_speed" "$latency" > "${CACHE_DIR}/speed_${server_id}.cache"
-}
-
 # Функция тестирования скорости с кэшированием
 speed_test() {
     local node_id="${1:-}"
     local node_name="$2"
     local col1_width="${3:-40}"
     local cache_key="${node_id:-default}"
-    
+
     # Пробуем получить из кэша
-    if cached_result=$(get_cached_result "$cache_key"); then
-        IFS=':' read -r dl_speed up_speed latency <<< "$cached_result"
-        debug "Using cached results for ${node_name}"
-    else
-        # Выполняем тест
-        debug "Running speed test for ${node_name}..."
-        
-        local speedtest_cmd=("${SPEEDTEST_BIN}" --progress=no --accept-license --accept-gdpr)
-        [ -n "$node_id" ] && speedtest_cmd+=(--server-id="$node_id")
-        
-        if ! "${speedtest_cmd[@]}" > "${CACHE_DIR}/speedtest.tmp" 2>&1; then
-            error "Speedtest failed for ${node_name}"
-        fi
-        
-        # Извлекаем данные из вывода
-        local output
-        output=$(<"${CACHE_DIR}/speedtest.tmp")
-        
-        # Используем один вызов awk для всех данных
-        # Собираем метрики в ассоциативный массив для надежности
-        declare -A metrics
-        while IFS=':' read -r key value; do
-            key=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
-            value=$(echo "$value" | xargs)  # Удаляем лишние пробелы
-            metrics["$key"]="$value"
-        done < <(grep -E 'Download:|Upload:|Latency:' <<< "$output")
-        
-        # Проверяем, что все метрики получены
-        [ -z "${metrics[download]}" ] && error "Failed to parse download speed"
-        [ -z "${metrics[upload]}" ] && error "Failed to parse upload speed"
-        [ -z "${metrics[latency]}" ] && error "Failed to parse latency"
-        
-        # Присваиваем значения в правильном порядке
-        dl_speed="${metrics[download]}"
-        up_speed="${metrics[upload]}"
-        latency="${metrics[latency]}"
-        
-        # Кэшируем результаты
-        cache_result "$cache_key" "$dl_speed" "$up_speed" "$latency"
+
+    # Выполняем тест
+    debug "Running speed test for ${node_name}..."
+
+    local speedtest_cmd=("${SPEEDTEST_BIN}" --progress=no --accept-license --accept-gdpr)
+    [ -n "$node_id" ] && speedtest_cmd+=(--server-id="$node_id")
+
+    if ! "${speedtest_cmd[@]}" > "${CACHE_DIR}/speedtest.tmp" 2>&1; then
+        error "Speedtest failed for ${node_name}"
     fi
-    
-    # Выводим результаты (порядок: Название, Download, Upload, Latency)
+
+    # Извлекаем данные из вывода
+    local output
+    output=$(<"${CACHE_DIR}/speedtest.tmp")
+
+    # Используем один вызов awk для всех данных
+    # Собираем метрики в ассоциативный массив для надежности
+    declare -A metrics
+    while IFS=':' read -r key value; do
+        key=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
+        value=$(echo "$value" | xargs)  # Удаляем лишние пробелы
+        metrics["$key"]="$value"
+    done < <(grep -E 'Download:|Upload:|Ping:' <<< "$output")
+
+    # Проверяем, что все метрики получены
+    [ -z "${metrics[download]}" ] && error "Failed to parse download speed"
+    [ -z "${metrics[upload]}" ] && error "Failed to parse upload speed"
+    [ -z "${metrics[latency]}" ] && error "Failed to parse latency"
+
+    # Присваиваем значения в правильном порядке
+    dl_speed="${metrics[download]}"
+    latency="${metrics[latency]}"
+    up_speed="${metrics[upload]}"
+
+    # Выводим результаты (порядок: Название, Download, Upload, Ping)
     printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
         " ${node_name}" "${dl_speed}" "${up_speed}" "${latency}"
 }
@@ -259,7 +223,7 @@ speed_test() {
 max_string_length() {
     local max=0
     local len
-    
+
     # Используем ассоциативный массив для хранения серверов
 declare -A servers=(
     [18570]='RETN Saint Petersburg'
@@ -271,13 +235,13 @@ declare -A servers=(
     [6051]='t2 Russia Saint Petersburg'
     [17039]='MegaFon Saint Petersburg'
 )
-    
+
     # Находим максимальную длину названия сервера
     for name in "${servers[@]}"; do
         len="${#name}"
         [ "$len" -gt "$max" ] && max="$len"
     done
-    
+
     echo $((max + 2))  # Добавляем отступ для лучшей читаемости
 }
 
@@ -298,9 +262,9 @@ declare -A servers=(
     local col1_width
     col1_width=$(max_string_length)
 
-    # Заголовок таблицы (порядок: Название, Download, Upload, Latency)
+    # Заголовок таблицы (порядок: Название, Download, Upload, Ping)
     printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
-           " Node Name" "Download Speed" "Upload Speed" "Latency"
+           " Node Name" "Download Speed" "Upload Speed" "Ping"
 
     # тестируем все пронумерованные сервера
     for server_id in "${!servers[@]}"; do
@@ -463,10 +427,10 @@ install_speedtest() {
         [ -z "${sys_bit}" ] && _red "Error: Unsupported system architecture (${sysarch}).\n" && exit 1
         url1="https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-${sys_bit}.tgz"
         url2="https://dl.lamp.sh/files/ookla-speedtest-1.2.0-linux-${sys_bit}.tgz"
-        if wget --no-check-certificate -q -T10 -O speedtest.tgz "${url1}" || 
+        if wget --no-check-certificate -q -T10 -O speedtest.tgz "${url1}" ||
            wget --no-check-certificate -q -T10 -O speedtest.tgz "${url2}"; then
-            if ! mkdir -p speedtest-cli || 
-               ! tar zxf speedtest.tgz -C ./speedtest-cli || 
+            if ! mkdir -p speedtest-cli ||
+               ! tar zxf speedtest.tgz -C ./speedtest-cli ||
                ! chmod +x ./speedtest-cli/speedtest; then
                 _red "Error: Failed to extract or set permissions for speedtest-cli.\n"
                 rm -f speedtest.tgz
@@ -503,7 +467,7 @@ get_system_info() {
     cores=$(awk -F: '/^processor/ {core++} END {print core}' /proc/cpuinfo 2>/dev/null || echo "1")
     freq=$(awk -F: '/cpu MHz/ {print $2;exit}' /proc/cpuinfo 2>/dev/null || echo "0" | sed 's/^[ \t]*//;s/[ \t]*$//')
     ccache=$(awk -F: '/cache size/ {cache=$2} END {print cache}' /proc/cpuinfo 2>/dev/null || echo "Unknown" | sed 's/^[ \t]*//;s/[ \t]*$//')
-    
+
     # Check for AES support (don't fail if not found)
     cpu_aes=""
     if grep -qi aes /proc/cpuinfo 2>/dev/null; then
@@ -511,7 +475,7 @@ get_system_info() {
     else
         cpu_aes="Disabled"
     fi
-    
+
     # Check for virtualization support (don't fail if not found)
     cpu_virt=""
     if grep -q -E 'vmx|svm' /proc/cpuinfo 2>/dev/null; then
@@ -519,7 +483,7 @@ get_system_info() {
     else
         cpu_virt="Disabled"
     fi
-    
+
     tram=$(
         LANG=C
         free | awk '/Mem/ {print $2}'
