@@ -8,7 +8,13 @@
 set -euo pipefail
 
 # Set script directory for relative paths
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+if [[ "${BASH_SOURCE[0]:-}" == "" ]]; then
+    # When running via curl | bash
+    SCRIPT_DIR="${PWD}"
+else
+    # When running directly
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+fi
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/speedtest-spb"
 LOG_FILE="${CACHE_DIR}/speedtest.log"
 SPEEDTEST_BIN="${SCRIPT_DIR}/speedtest-cli/speedtest"
