@@ -204,8 +204,10 @@ speed_test() {
             key="latency"
         fi
 
-        # 3) сохраняем значение (обрезав пробелы)
-        metrics["$key"]=$(echo "$value" | xargs)
+        # 3) сохраняем значение, убирая скобки и содержимое внутри них
+        metrics["$key"]=$(echo "$value" \
+                           | sed -E 's/\s*\(.*\)//g' \
+                           | xargs)
     done < <(grep -iE 'Download:|Upload:|Latency:' <<< "$output")
 
     # Проверяем, что все метрики получены
