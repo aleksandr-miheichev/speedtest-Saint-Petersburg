@@ -215,10 +215,10 @@ speed_test() {
     [[ -z "${metrics[upload]:-}"   ]] && error "Failed to parse upload speed"
     [[ -z "${metrics[latency]:-}"  ]] && error "Failed to parse latency"
 
-    # Присваиваем значения в правильном порядке
-    dl_speed="${metrics[download]}"
-    latency="${metrics[latency]}"
-    up_speed="${metrics[upload]}"
+    # Обрабатываем значения, удаляя все после первого пробела (включая скобки)
+    dl_speed=$(echo "${metrics[download]}" | sed 's/\([0-9.]* [A-Za-z/]*\).*/\1/')
+    up_speed=$(echo "${metrics[upload]}" | sed 's/\([0-9.]* [A-Za-z/]*\).*/\1/')
+    latency=$(echo "${metrics[latency]}" | sed 's/\([0-9.]* [A-Za-z/]*\).*/\1/')
 
     # Выводим результаты (порядок: Название, Download, Upload, Ping)
     printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
