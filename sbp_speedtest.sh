@@ -188,7 +188,7 @@ speed_test() {
     fi
 
     # Извлекаем данные из вывода
-    local outpu
+    local output
     output=$(<"${CACHE_DIR}/speedtest.tmp")
 
     while IFS=':' read -r raw_key value; do
@@ -281,17 +281,15 @@ declare -A servers=(
 
 
 io_test() {
-    local result
-    result=$(
-        set +x
-        LANG=C dd if=/dev/zero of=benchtest_$$ bs=512k count="$1" conv=fdatasync 2>&1
-    )
-    # Теперь фильтруем только строку с цифрами скорости
-    result=$(printf '%s\n' "$result" \
-        | awk -F '[,，]' '/records out/ {io=$NF} END { print io }' \
-        | sed 's/^[ \t]*//;s/[ \t]*$//')
-    rm -f benchtest_$$ 2>/dev/null
-    printf '%s' "$result"
+  local tmp result speed
+  tmp=benchtest_$$
+  result=$(dd if=/dev/zero of="$tmp" bs=512k count="$1" conv=fdatasync 2>&1)
+  speed=$(
+    printf '%s\n' "$result" \
+      | awk -F, '/copied/ { gsub(/^[ \t]+|[ \t]+$/, "", $NF); print $NF }'
+  )
+  rm -f "$tmp"
+  printf '%s' "$speed"
 }
 
 calc_size() {
