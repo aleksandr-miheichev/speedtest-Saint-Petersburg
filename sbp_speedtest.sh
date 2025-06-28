@@ -228,25 +228,31 @@ speed_test() {
         output=$(<"${CACHE_DIR}/speedtest.tmp")
         
         # Используем один вызов awk для всех данных
-        readarray -t metrics < <(awk '
-            /Download:/ {print $3 " " $4}
-            /Upload:/ {print $3 " " $4}
-            /Latency:/ {print $3 " " $4}
-        ' <<< "$output")
+        # Собираем метрики в ассоциативный массив для надежности
+        declare -A metrics
+        while IFS=':' read -r key value; do
+            key=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
+            value=$(echo "$value" | xargs)  # Удаляем лишние пробелы
+            metrics["$key"]="$value"
+        done < <(grep -E 'Download:|Upload:|Latency:' <<< "$output")
         
-        [ "${#metrics[@]}" -lt 3 ] && error "Failed to parse speedtest output"
+        # Проверяем, что все метрики получены
+        [ -z "${metrics[download]}" ] && error "Failed to parse download speed"
+        [ -z "${metrics[upload]}" ] && error "Failed to parse upload speed"
+        [ -z "${metrics[latency]}" ] && error "Failed to parse latency"
         
-        dl_speed="${metrics[0]}"
-        up_speed="${metrics[1]}"
-        latency="${metrics[2]}"
+        # Присваиваем значения в правильном порядке
+        dl_speed="${metrics[download]}"
+        up_speed="${metrics[upload]}"
+        latency="${metrics[latency]}"
         
         # Кэшируем результаты
         cache_result "$cache_key" "$dl_speed" "$up_speed" "$latency"
     fi
     
-    # Выводим результаты
-    printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
-        " ${node_name}" "${up_speed}" "${dl_speed}" "${latency}"
+    # Выводим результаты (порядок: Название, Download, Upload, Latency)
+    printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
+        " ${node_name}" "${dl_speed}" "${up_speed}" "${latency}"
 }
 
 # Функция для вычисления максимальной длины строки в массиве
@@ -292,9 +298,9 @@ declare -A servers=(
     local col1_width
     col1_width=$(max_string_length)
 
-    # заголовок
-    printf "${YELLOW}%-${col1_width}s${GREEN}%-18s${RED}%-20s${BLUE}%-12s${NC}\n" \
-           " Node Name" "Upload Speed" "Download Speed" "Latency"
+    # Заголовок таблицы (порядок: Название, Download, Upload, Latency)
+    printf "${YELLOW}%-${col1_width}s${RED}%-18s${GREEN}%-20s${BLUE}%-12s${NC}\n" \
+           " Node Name" "Download Speed" "Upload Speed" "Latency"
 
     # тестируем все пронумерованные сервера
     for server_id in "${!servers[@]}"; do
