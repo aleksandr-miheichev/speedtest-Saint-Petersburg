@@ -66,7 +66,6 @@ speedtest --server-id=18570
 | 18570     | RETN Saint Petersburg |
 | 31126     | Nevalink Ltd. Saint Petersburg |
 | 16125     | Selectel Saint Petersburg |
-| 69069     | Aeza.net Saint Petersburg |
 | 21014     | P.A.K.T. LLC Saint Petersburg |
 | 4247      | MTS Saint Petersburg |
 | 6051      | t2 Russia Saint Petersburg |
