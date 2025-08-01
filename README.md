@@ -63,12 +63,13 @@ speedtest --server-id=18570
 
 | Server ID | Provider |
 |-----------|---------------------------------|
-| 18570     | RETN Saint Petersburg |
+| 9644      | Forest Net Saint Petersburg |
+| 15929     | PIN Co. Ltd. Ltd. Saint Petersburg |
 | 31126     | Nevalink Ltd. Saint Petersburg |
-| 16125     | Selectel Saint Petersburg |
-| 21014     | P.A.K.T. LLC Saint Petersburg |
+| 34652     | G&G Telecom Saint Petersburg |
+| 65235     | Evro Telecom Saint Petersburg |
+| 63480     | Vointelecom LLC Saint Petersburg |
 | 4247      | MTS Saint Petersburg |
-| 6051      | t2 Russia Saint Petersburg |
 | 17039     | MegaFon Saint Petersburg |
 
 ## 📂 Files and Locations
