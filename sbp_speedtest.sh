@@ -472,7 +472,7 @@ print_intro() {
 
     printf "%s\n" "$border"
     printf "  %sSpeedtest for Saint Petersburg Servers%s\n" "$BOLD" "$NORMAL"
-    printf "  Version: %sv1.1.0%s (2025-06-28)\n"           "$GREEN" "$NC"
+    printf "  Version: %sv1.2.0%s (2025-08-01)\n"           "$GREEN" "$NC"
     printf "  Usage:   %s%s%s\n"                            \
            "$BLUE" "wget -qO- https://raw.githubusercontent.com/aleksandr-miheichev/speedtest-Saint-Petersburg/main/sbp_speedtest.sh | bash" "$NC"
     printf "  Source:  %shttps://github.com/aleksandr-miheichev/speedtest-Saint-Petersburg%s\n" \
