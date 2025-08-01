@@ -64,7 +64,7 @@ speedtest --server-id=18570
 | Server ID | Provider |
 |-----------|---------------------------------|
 | 9644      | Forest Net Saint Petersburg |
-| 15929     | PIN Co. Ltd. Ltd. Saint Petersburg |
+| 15929     | PIN Co. Ltd. Saint Petersburg |
 | 31126     | Nevalink Ltd. Saint Petersburg |
 | 34652     | G&G Telecom Saint Petersburg |
 | 65235     | Evro Telecom Saint Petersburg |
