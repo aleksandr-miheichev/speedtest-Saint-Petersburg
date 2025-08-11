@@ -234,7 +234,7 @@ max_string_length() {
     # Используем ассоциативный массив для хранения серверов
 declare -A servers=(
     [9644]='Forest Net Saint Petersburg'
-    [5237]='Comfortel LLC'    
+    [16125]='Selectel Saint Petersburg'
     [34652]='G&G Telecom LLC Saint Petersburg'
     [65235]='Evro Telecom Saint Petersburg'
     [63480]='Vointelecom LLC Saint Petersburg'
@@ -253,7 +253,7 @@ speed() {
     # ассоциативный массив только с цифровыми ID
 declare -A servers=(
     [9644]='Forest Net Saint Petersburg'
-    [5237]='Comfortel LLC'    
+    [16125]='Selectel Saint Petersburg'
     [34652]='G&G Telecom LLC Saint Petersburg'
     [65235]='Evro Telecom Saint Petersburg'
     [63480]='Vointelecom LLC Saint Petersburg'
